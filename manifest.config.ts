@@ -13,4 +13,14 @@ export default defineManifest({
   action: {
     default_popup: 'src/popup/index.html',
   },
+  content_scripts: [
+    {
+      matches: ['https://www.google.com/*'],
+      js: ['src/content_script/index.tsx'],
+    },
+  ],
+  background: {
+    service_worker: 'src/background/index.ts',
+  },
+  permissions: ['storage', 'tabs', 'activeTab'],
 });

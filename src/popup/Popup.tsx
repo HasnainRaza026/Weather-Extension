@@ -1,14 +1,33 @@
 import { AppWindow, Plus } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
-function App() {
+function Popup() {
   const [inputCity, setInputCity] = useState('');
+  const [temp, setTemp] = useState('C');
+  const [showOverlay, setShowOverlay] = useState(false);
+
+  useEffect(() => {
+    chrome.storage.local.get(['showOverlay'], (result) => {
+      setShowOverlay(result.showOverlay);
+    });
+  }, []);
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (inputCity.trim() === '') return;
     console.log(`Fetching weather for: ${inputCity}`);
     setInputCity('');
+  };
+
+  const handleOverlayToggle = () => {
+    chrome.storage.local.set({ showOverlay: !showOverlay });
+
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      if (!tabs[0]?.id) return;
+      chrome.tabs.sendMessage(tabs[0].id, { action: 'toggle-overlay' }, () => {
+        setShowOverlay((prev) => !prev);
+      });
+    });
   };
 
   return (
@@ -26,10 +45,18 @@ function App() {
             <Plus />
           </button>
         </form>
-        <button className='p-2 border border-gray-500 rounded text-xl'>
-          °C
+        <button
+          className='p-2 border border-gray-500 rounded text-xl'
+          onClick={() => (temp === 'C' ? setTemp('F') : setTemp('C'))}
+        >
+          {temp === 'C' ? '°C' : '°F'}
         </button>
-        <button className='p-2 border border-gray-500 rounded'>
+        <button
+          className={`p-2 border border-gray-500 rounded ${
+            showOverlay ? 'bg-gray-200' : ''
+          }`}
+          onClick={handleOverlayToggle}
+        >
           <AppWindow className='text-gray-500' />
         </button>
       </div>
@@ -48,37 +75,9 @@ function App() {
           </div>
           <button className='text-red-800'>DELETE</button>
         </div>
-        <div className='p-4 rounded bg-white border border-gray-300'>
-          <div className='flex flex-col items-center justify-between'>
-            <p className='text-lg'>Hyderabad</p>
-            <p className='text-3xl'>25°C</p>
-          </div>
-          <button className='text-red-800'>DELETE</button>
-        </div>
-        <div className='p-4 rounded bg-white border border-gray-300'>
-          <div className='flex flex-col items-center justify-between'>
-            <p className='text-lg'>Hyderabad</p>
-            <p className='text-3xl'>25°C</p>
-          </div>
-          <button className='text-red-800'>DELETE</button>
-        </div>
-        <div className='p-4 rounded bg-white border border-gray-300'>
-          <div className='flex flex-col items-center justify-between'>
-            <p className='text-lg'>Hyderabad</p>
-            <p className='text-3xl'>25°C</p>
-          </div>
-          <button className='text-red-800'>DELETE</button>
-        </div>
-        <div className='p-4 rounded bg-white border border-gray-300'>
-          <div className='flex flex-col items-center justify-between'>
-            <p className='text-lg'>Hyderabad</p>
-            <p className='text-3xl'>25°C</p>
-          </div>
-          <button className='text-red-800'>DELETE</button>
-        </div>
       </div>
     </div>
   );
 }
 
-export default App;
+export default Popup;
