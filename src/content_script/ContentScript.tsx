@@ -41,7 +41,7 @@ export default function ContentScript() {
     }
   }, [isShown]);
 
-  chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  chrome.runtime.onMessage.addListener((message, _, sendResponse) => {
     if (message.action === 'toggle-overlay') {
       chrome.storage.local.get(['showOverlay'], (result) => {
         setIsShown(result.showOverlay);
