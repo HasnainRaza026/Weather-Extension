@@ -8,33 +8,50 @@ chrome.runtime.onInstalled.addListener(async (details) => {
 
   const city = await getUserCity();
   if (city) {
-    const weatherData = await getWeatherData({
+    const weatherDataCel = await getWeatherData({
       lat: city.lat,
       lng: city.lon,
+      units: 'metric',
     });
-    if (weatherData) {
+    const weatherDataFrn = await getWeatherData({
+      lat: city.lat,
+      lng: city.lon,
+      units: 'imperial',
+    });
+    if (weatherDataCel && weatherDataFrn) {
       chrome.storage.local.set({
-        cityTemps: [
+        cityTempsCel: [
           {
             city: city.city,
             lat: city.lat,
             lon: city.lon,
-            temperature: weatherData.temperature,
+            temperature: weatherDataCel.temperature,
+          },
+        ],
+        cityTempsFrn: [
+          {
+            city: city.city,
+            lat: city.lat,
+            lon: city.lon,
+            temperature: weatherDataFrn.temperature,
           },
         ],
       });
     } else {
       chrome.storage.local.set({
-        cityTemps: [],
+        cityTempsCel: [],
+        cityTempsFrn: [],
       });
     }
   } else {
     chrome.storage.local.set({
-      cityTemps: [],
+      cityTempsCel: [],
+      cityTempsFrn: [],
     });
   }
 
   chrome.storage.local.set({
     showOverlay: false,
+    unit: 'C',
   });
 });

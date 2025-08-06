@@ -13,43 +13,79 @@ interface CityTemp {
 function Popup() {
   const [cityTemps, setCityTemps] = useState<CityTemp[]>([]);
   const [inputCity, setInputCity] = useState('');
-  const [temp, setTemp] = useState('C');
+  const [unit, setUnit] = useState('');
   const [showOverlay, setShowOverlay] = useState(false);
 
   useEffect(() => {
-    chrome.storage.local.get(['showOverlay', 'cityTemps'], (result) => {
-      setShowOverlay(result.showOverlay);
-      setCityTemps(result.cityTemps || []);
-    });
+    chrome.storage.local.get(
+      ['showOverlay', 'cityTempsCel', 'cityTempsFrn', 'unit'],
+      (result) => {
+        setShowOverlay(result.showOverlay);
+        setUnit(result.unit);
+        if (result.unit === 'C') {
+          setCityTemps(result.cityTempsCel || []);
+        } else {
+          setCityTemps(result.cityTempsFrn || []);
+        }
+      }
+    );
   }, []);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (inputCity.trim() === '') return;
-    // console.log(`Fetching weather for: ${inputCity}`);
 
     try {
       const coords = await getCoordsByCity(inputCity);
       if (coords) {
-        const weatherData = await getWeatherData({
+        const weatherDataCel = await getWeatherData({
           lat: coords.lat,
           lng: coords.lng,
+          units: 'metric',
         });
-        if (weatherData) {
-          chrome.storage.local.get(['cityTemps'], (result) => {
-            const updatedCityTemps = [
-              ...result.cityTemps,
-              {
-                city: coords.city,
-                lat: coords.lat,
-                lon: coords.lng,
-                temperature: weatherData.temperature,
-              },
-            ];
-            chrome.storage.local.set({ cityTemps: updatedCityTemps }, () => {
-              setCityTemps(updatedCityTemps);
-            });
-          });
+        const weatherDataFrn = await getWeatherData({
+          lat: coords.lat,
+          lng: coords.lng,
+          units: 'imperial',
+        });
+        if (weatherDataCel && weatherDataFrn) {
+          chrome.storage.local.get(
+            ['cityTempsCel', 'cityTempsFrn'],
+            (result) => {
+              chrome.storage.local.set(
+                {
+                  cityTempsCel: [
+                    ...result.cityTempsCel,
+                    {
+                      city: coords.city,
+                      lat: coords.lat,
+                      lon: coords.lng,
+                      temperature: weatherDataCel.temperature,
+                    },
+                  ],
+                  cityTempsFrn: [
+                    ...result.cityTempsFrn,
+                    {
+                      city: coords.city,
+                      lat: coords.lat,
+                      lon: coords.lng,
+                      temperature: weatherDataFrn.temperature,
+                    },
+                  ],
+                },
+                () => {
+                  chrome.storage.local.get(
+                    unit === 'C' ? 'cityTempsCel' : 'cityTempsFrn',
+                    (result) => {
+                      setCityTemps(
+                        result[unit === 'C' ? 'cityTempsCel' : 'cityTempsFrn']
+                      );
+                    }
+                  );
+                }
+              );
+            }
+          );
         } else {
           throw new Error('Could not fetch weather data for the city');
         }
@@ -58,8 +94,16 @@ function Popup() {
       }
     } catch (error) {
       console.error('Error fetching weather data:', error);
+    } finally {
+      setInputCity('');
+      // chrome.storage.local.get(
+      //   unit === 'C' ? 'cityTempsCel' : 'cityTempsFrn',
+      //   (result) => {
+      //     setCityTemps(result[unit === 'C' ? 'cityTempsCel' : 'cityTempsFrn']);
+      //   }
+      // );
+      console.log('hi');
     }
-    setInputCity('');
   };
 
   const handleOverlayToggle = () => {
@@ -70,6 +114,43 @@ function Popup() {
       chrome.tabs.sendMessage(tabs[0].id, { action: 'toggle-overlay' }, () => {
         setShowOverlay((prev) => !prev);
       });
+    });
+  };
+
+  const handleDeleteCity = (city: string) => {
+    chrome.storage.local.get(['cityTempsCel', 'cityTempsFrn'], (result) => {
+      const updatedCityTempsCel = result.cityTempsCel.filter(
+        (ct: CityTemp) => ct.city !== city
+      );
+      const updatedCityTempsFrn = result.cityTempsFrn.filter(
+        (ct: CityTemp) => ct.city !== city
+      );
+      chrome.storage.local.set(
+        {
+          cityTempsCel: updatedCityTempsCel,
+          cityTempsFrn: updatedCityTempsFrn,
+        },
+        () => {
+          setCityTemps(
+            unit === 'C' ? updatedCityTempsCel : updatedCityTempsFrn
+          );
+        }
+      );
+    });
+  };
+
+  const handleUnitChange = () => {
+    const newUnit = unit === 'C' ? 'F' : 'C';
+    chrome.storage.local.set({ unit: newUnit }, () => {
+      setUnit(newUnit);
+      chrome.storage.local.get(
+        newUnit === 'C' ? 'cityTempsCel' : 'cityTempsFrn',
+        (result) => {
+          setCityTemps(
+            result[newUnit === 'C' ? 'cityTempsCel' : 'cityTempsFrn']
+          );
+        }
+      );
     });
   };
 
@@ -90,9 +171,9 @@ function Popup() {
         </form>
         <button
           className='p-2 border border-gray-500 rounded text-xl'
-          onClick={() => (temp === 'C' ? setTemp('F') : setTemp('C'))}
+          onClick={handleUnitChange}
         >
-          {temp === 'C' ? '°C' : '°F'}
+          {unit === 'C' ? '°C' : '°F'}
         </button>
         <button
           className={`p-2 border border-gray-500 rounded ${
@@ -115,9 +196,16 @@ function Popup() {
             >
               <div className='flex flex-col items-center justify-between'>
                 <p className='text-lg'>{cityTemp.city}</p>
-                <p className='text-3xl'>{cityTemp.temperature}°C</p>
+                <p className='text-3xl'>
+                  {cityTemp.temperature}°{unit}
+                </p>
               </div>
-              <button className='text-red-800'>DELETE</button>
+              <button
+                className='text-red-800'
+                onClick={() => handleDeleteCity(cityTemp.city)}
+              >
+                DELETE
+              </button>
             </div>
           ))}
         </div>

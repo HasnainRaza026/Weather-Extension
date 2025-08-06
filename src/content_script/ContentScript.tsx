@@ -13,11 +13,33 @@ export default function ContentScript() {
   const [isShown, setIsShown] = useState(false);
 
   useEffect(() => {
-    chrome.storage.local.get(['showOverlay', 'cityTemps'], (result) => {
-      setIsShown(result.showOverlay);
-      setCityTemp(result.cityTemps || []);
-    });
+    chrome.storage.local.get(
+      ['showOverlay', 'cityTempsCel', 'cityTempsFrn', 'unit'],
+      (result) => {
+        setIsShown(result.showOverlay);
+        if (result.unit === 'C') {
+          setCityTemp(result.cityTempsCel || []);
+        } else {
+          setCityTemp(result.cityTempsFrn || []);
+        }
+      }
+    );
   }, []);
+
+  useEffect(() => {
+    if (isShown) {
+      chrome.storage.local.get(
+        ['cityTempsCel', 'cityTempsFrn', 'unit'],
+        (result) => {
+          if (result.unit === 'C') {
+            setCityTemp(result.cityTempsCel || []);
+          } else {
+            setCityTemp(result.cityTempsFrn || []);
+          }
+        }
+      );
+    }
+  }, [isShown]);
 
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.action === 'toggle-overlay') {
@@ -42,7 +64,7 @@ export default function ContentScript() {
   return (
     <div className='container' style={{ display: isShown ? 'block' : 'none' }}>
       <h1 className='title'>{cityTemp[0].city}</h1>
-      <p className='temperature'>{cityTemp[0].temperature}°C</p>
+      <p className='temperature'>{cityTemp[0].temperature}°</p>
     </div>
   );
 }
