@@ -23,4 +23,5 @@ export default defineManifest({
     service_worker: 'src/background/index.ts',
   },
   permissions: ['storage', 'tabs', 'activeTab'],
+  host_permissions: ['https://ip-api.com/*'],
 });
